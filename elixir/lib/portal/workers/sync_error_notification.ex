@@ -95,18 +95,18 @@ defmodule Portal.Workers.SyncErrorNotification do
     # Attempt to send the email but log errors if it fails. Important not to raise here
     # otherwise we won't increment the error email count and potentially spam admins with emails.
     Mailer.SyncEmail.sync_error_email(directory, admin.email)
-    |> Mailer.deliver()
+    |> Mailer.enqueue(:later)
     |> case do
       {:ok, _result} ->
-        Logger.info("Sync error email sent successfully",
+        Logger.info("Sync error email enqueued successfully",
           to: admin.email,
           directory_id: directory.id
         )
 
       {:error, reason} ->
-        Logger.error("Failed to send sync error email",
+        Logger.error("Failed to enqueue sync error email",
           to: admin.email,
-          reason: reason,
+          reason: inspect(reason),
           directory_id: directory.id
         )
     end

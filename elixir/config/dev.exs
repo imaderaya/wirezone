@@ -90,7 +90,9 @@ config :portal, Oban,
        {worker_dev_schedule, Portal.Workers.DeleteExpiredClientTokens},
        {worker_dev_schedule, Portal.Workers.DeleteExpiredAPITokens},
        {worker_dev_schedule, Portal.Workers.DeleteExpiredOneTimePasscodes},
-       {worker_dev_schedule, Portal.Workers.DeleteExpiredPortalSessions}
+       {worker_dev_schedule, Portal.Workers.DeleteExpiredPortalSessions},
+       {worker_dev_schedule, Portal.Workers.EmailQueue},
+       {worker_dev_schedule, Portal.Workers.DeleteOldEmailQueueEntries}
      ]}
   ],
   queues: [
@@ -101,7 +103,8 @@ config :portal, Oban,
     google_sync: 5,
     okta_scheduler: 1,
     okta_sync: 5,
-    sync_error_notifications: 1
+    sync_error_notifications: 1,
+    email_queue: 1
   ],
   engine: Oban.Engines.Basic,
   repo: Portal.Repo

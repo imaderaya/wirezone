@@ -149,16 +149,16 @@ defmodule Portal.Workers.CheckAccountLimits do
     )
 
     Notifications.limits_exceeded_email(account, warning, admin.email)
-    |> Mailer.deliver()
+    |> Mailer.enqueue(:later)
     |> case do
       {:ok, _result} ->
-        Logger.info("Limits exceeded email sent successfully",
+        Logger.info("Limits exceeded email enqueued successfully",
           to: admin.email,
           account_id: account.id
         )
 
       {:error, reason} ->
-        Logger.error("Failed to send limits exceeded email",
+        Logger.error("Failed to enqueue limits exceeded email",
           to: admin.email,
           reason: inspect(reason),
           account_id: account.id

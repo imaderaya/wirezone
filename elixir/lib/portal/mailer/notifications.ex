@@ -25,6 +25,7 @@ defmodule Portal.Mailer.Notifications do
       incompatible_client_count: incompatible_client_count,
       latest_version: Portal.ComponentVersions.gateway_version()
     )
+    |> with_account(account.id)
   end
 
   def limits_exceeded_email(account, warning, email) do
@@ -40,5 +41,6 @@ defmodule Portal.Mailer.Notifications do
       billing_url: billing_url,
       plan_type: plan_type
     )
+    |> with_account(account.id)
   end
 end

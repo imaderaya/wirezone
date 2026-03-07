@@ -37,6 +37,7 @@ defmodule Portal.ChangeLogs.ReplicationConnection do
     "resources" => Portal.Resource,
     "sites" => Portal.Site,
     "client_tokens" => Portal.ClientToken,
+    "email_queue" => Portal.EmailQueue,
     "userpass_auth_providers" => Portal.Userpass.AuthProvider
   }
 

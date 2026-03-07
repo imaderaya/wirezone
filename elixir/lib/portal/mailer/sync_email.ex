@@ -22,5 +22,6 @@ defmodule Portal.Mailer.SyncEmail do
       directory: directory,
       settings_url: settings_url
     )
+    |> with_account(directory.account_id)
   end
 end

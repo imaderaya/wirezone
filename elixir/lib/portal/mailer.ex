@@ -81,4 +81,72 @@ defmodule Portal.Mailer do
     Email.new()
     |> Email.from({"Firezone Notifications", from_email})
   end
+
+  def with_account(%Email{} = email, account_id) do
+    Email.put_private(email, :account_id, account_id)
+  end
+
+  @doc """
+  Enqueues an email for delivery via the email queue worker.
+
+  priority: :now — delivers inline and tracks result in the DB row.
+  priority: :later — inserts only; worker delivers asynchronously.
+  """
+  def enqueue(%Email{} = email, :now) do
+    account_id = email.private[:account_id]
+    request = serialize(email)
+
+    with {:ok, entry} <-
+           %Portal.EmailQueue{
+             account_id: account_id,
+             priority: :now,
+             request: request,
+             last_attempted_at: DateTime.utc_now()
+           }
+           |> Portal.Safe.unscoped()
+           |> Portal.Safe.insert() do
+      email_to_deliver = Map.put(email, :provider_options, %{operation_id: entry.id})
+
+      {status, response} =
+        case deliver(email_to_deliver) do
+          {:ok, resp} ->
+            {:accepted, resp}
+
+          {:error, {code, body}} when is_integer(code) and code in 400..499 ->
+            {:failed, %{"status" => code, "body" => inspect(body)}}
+
+          {:error, reason} ->
+            {:errored, %{"reason" => inspect(reason)}}
+        end
+
+      entry
+      |> Ecto.Changeset.change(status: status, response: response)
+      |> Portal.Safe.unscoped()
+      |> Portal.Safe.update()
+
+      {:ok, entry}
+    end
+  end
+
+  def enqueue(%Email{} = email, :later) do
+    account_id = email.private[:account_id]
+
+    %Portal.EmailQueue{account_id: account_id, priority: :later, request: serialize(email)}
+    |> Portal.Safe.unscoped()
+    |> Portal.Safe.insert()
+  end
+
+  defp serialize(%Email{} = email) do
+    %{
+      "to" => Enum.map(email.to, fn {name, addr} -> %{"name" => name, "address" => addr} end),
+      "from" =>
+        case email.from do
+          {name, addr} -> %{"name" => name, "address" => addr}
+          addr -> %{"name" => "", "address" => addr}
+        end,
+      "subject" => email.subject,
+      "html_body" => email.html_body,
+      "text_body" => email.text_body
+    }
+  end
 end

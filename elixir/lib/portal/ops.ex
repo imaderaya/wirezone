@@ -1,6 +1,6 @@
 defmodule Portal.Ops do
   alias __MODULE__.Database
-  alias Portal.Banner
+  alias Portal.{Banner, Mailer}
 
   @doc """
   Counts presences grouped by topic prefix.
@@ -77,9 +77,27 @@ defmodule Portal.Ops do
     Database.delete_all(Banner)
   end
 
+  def queue_admin_email(account_ids \\ :all, subject, html_body, plaintext_body) do
+    Database.resolve_account_ids(account_ids)
+    |> Enum.each(fn account_id ->
+      Database.get_account_admin_emails(account_id)
+      |> Enum.each(fn {account_id, email} ->
+        Mailer.default_email()
+        |> Swoosh.Email.subject(subject)
+        |> Swoosh.Email.to(email)
+        |> Swoosh.Email.html_body(html_body)
+        |> Swoosh.Email.text_body(plaintext_body)
+        |> Mailer.with_account(account_id)
+        |> Mailer.enqueue(:later)
+      end)
+    end)
+
+    :ok
+  end
+
   defmodule Database do
     import Ecto.Query
-    alias Portal.{Account, Safe}
+    alias Portal.{Account, Actor, Safe}
 
     def get_disabled_account!(id) do
       from(a in Account,
@@ -106,6 +124,25 @@ defmodule Portal.Ops do
       banner
       |> Safe.unscoped()
       |> Safe.delete()
+    end
+
+    def resolve_account_ids(:all) do
+      from(a in Account, where: is_nil(a.disabled_at), select: a.id)
+      |> Safe.unscoped(:replica)
+      |> Safe.all()
+    end
+
+    def resolve_account_ids(ids) when is_list(ids), do: ids
+
+    def get_account_admin_emails(account_id) do
+      from(a in Actor,
+        where: a.account_id == ^account_id,
+        where: a.type == :account_admin_user,
+        where: is_nil(a.disabled_at),
+        select: {a.account_id, a.email}
+      )
+      |> Safe.unscoped(:replica)
+      |> Safe.all()
     end
   end
 end
